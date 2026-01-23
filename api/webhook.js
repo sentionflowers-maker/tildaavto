@@ -46,7 +46,7 @@ module.exports = async (req, res) => {
 
       const tildaData = {
         payment_system: tildaLogin,
-        order_id: tildaOrderId,
+        orderid: tildaOrderId, // FIX: Use orderid strictly as per Tilda spec
         amount: amountStr,
         payment_id: paymentId,
         state: state,
