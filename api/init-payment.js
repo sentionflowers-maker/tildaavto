@@ -27,6 +27,9 @@ module.exports = async (req, res) => {
     // Tilda usually doesn't send payment_id in init request, but just in case
     const payment_id = body.payment_id || body.PAYMENT_ID;
 
+    // Capture dynamic callback URL if provided by Tilda (via "URL для уведомлений" field mapping)
+    const callback_url = body.callback_url || body.CALLBACK_URL;
+
     if (!amount) {
       console.error('Missing amount in request');
       return res.status(400).send('Missing amount');
@@ -34,10 +37,6 @@ module.exports = async (req, res) => {
 
     if (!orderid) {
       console.error('Missing orderid in request. Keys received:', Object.keys(body));
-      // We might want to proceed even without orderid if testing, but for Tilda callback it is crucial.
-      // Let's generate a temporary one if missing to avoid breaking the flow completely, 
-      // but notification will fail to link to Tilda order.
-      // Better to fail here so we know something is wrong.
       return res.status(400).send('Missing orderid');
     }
 
@@ -54,7 +53,7 @@ module.exports = async (req, res) => {
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const baseUrl = `${protocol}://${host}`;
 
-    console.log(`Creating payment intent: Amount=${amount}, OrderID=${orderid}`);
+    console.log(`Creating payment intent: Amount=${amount}, OrderID=${orderid}, CallbackURL=${callback_url}`);
 
     const response = await axios.post(
       'https://api-v2.ziina.com/api/payment_intent',
@@ -69,7 +68,8 @@ module.exports = async (req, res) => {
           tilda_amount: amount, 
           customer_name: name,
           customer_email: email,
-          customer_phone: phone
+          customer_phone: phone,
+          tilda_callback_url: callback_url // Store for webhook usage
         }
       },
       {

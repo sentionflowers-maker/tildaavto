@@ -55,11 +55,19 @@ module.exports = async (req, res) => {
 
       console.log('Sending notification to Tilda:', tildaData);
 
-      // Use the CORRECT URL from the screenshot provided by the user.
-      // The one in Vercel env vars (TILDA_CALLBACK_URL) appears to be incorrect/incomplete (forms.tildacdn.com vs forms.tildaapi.com).
-      const tildaNotificationUrl = 'https://forms.tildaapi.com/payment/custom/ps2755493';
+      // Determine the correct Tilda URL
+      // 1. Prefer URL stored in metadata (sent by Tilda during init)
+      // 2. Fallback to hardcoded URL from screenshot (ps2755493)
+      // 3. Fallback to env var (least reliable due to user confusion)
       
-      console.log('Using Tilda URL:', tildaNotificationUrl);
+      let tildaNotificationUrl = metadata.tilda_callback_url;
+      
+      if (!tildaNotificationUrl) {
+         tildaNotificationUrl = 'https://forms.tildaapi.com/payment/custom/ps2755493';
+         console.log('Using hardcoded fallback Tilda URL:', tildaNotificationUrl);
+      } else {
+         console.log('Using dynamic Tilda URL from metadata:', tildaNotificationUrl);
+      }
 
       try {
         const tildaResponse = await axios.post(tildaNotificationUrl, tildaData);
