@@ -12,7 +12,12 @@ module.exports = async (req, res) => {
     // Tilda usually sends amount as float or string.
     const amountInFils = Math.round(parseFloat(amount) * 100);
 
-    const ziinaToken = process.env.ZIINA_API_TOKEN;
+    const ziinaToken = process.env.ZIINA_API_TOKEN || process.env.ZIINA_API_KEY;
+    if (!ziinaToken) {
+      console.error('ZIINA_API_TOKEN or ZIINA_API_KEY is missing');
+      return res.status(500).send('Configuration Error');
+    }
+
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const baseUrl = `${protocol}://${host}`;
