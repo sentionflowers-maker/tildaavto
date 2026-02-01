@@ -1,5 +1,100 @@
 const axios = require('axios');
 const crypto = require('crypto');
+const querystring = require('querystring');
+
+function coerceBody(body) {
+  if (!body) return {};
+  if (typeof body === 'object' && !Buffer.isBuffer(body)) return body;
+  const text = Buffer.isBuffer(body) ? body.toString('utf8') : String(body);
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) {
+    return querystring.parse(trimmed);
+  }
+}
+
+function normalizeString(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function safeString(obj, key) {
+  const v = obj ? obj[key] : undefined;
+  if (v === undefined || v === null) return '';
+  return String(v);
+}
+
+async function sendPaidOrderToIiko({ req, metadata, paymentIntent }) {
+  const tildaIiko = require('./tilda-iiko');
+
+  const secret = process.env.TILDA_WEBHOOK_SECRET || '';
+  const protocol = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+
+  let tildaPayload = null;
+  const rawPayload = metadata ? metadata.tilda_payload : null;
+  if (rawPayload) {
+    try {
+      tildaPayload = JSON.parse(String(rawPayload));
+    } catch (_) {
+      tildaPayload = null;
+    }
+  }
+
+  const amountStr = safeString(metadata, 'tilda_amount') || safeString(paymentIntent, 'amount') || '';
+  const body = {
+    ...(tildaPayload && typeof tildaPayload === 'object' ? tildaPayload : {}),
+    orderid: safeString(metadata, 'tilda_order_id') || safeString(metadata, 'order_id'),
+    paymentid: safeString(paymentIntent, 'id'),
+    payment_status: 'paid',
+    amount: amountStr || safeString(metadata, 'amount')
+  };
+
+  if (secret) body.secret = secret;
+
+  const localReq = {
+    method: 'POST',
+    url: '/api/tilda-iiko',
+    headers: {
+      ...(secret ? { 'x-webhook-secret': secret } : {}),
+      ...(host ? { host } : {})
+    },
+    body
+  };
+
+  let result = null;
+  const localRes = {
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    send(payload) {
+      this.payload = payload;
+      result = { statusCode: this.statusCode || 200, body: payload };
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      result = { statusCode: this.statusCode || 200, body: payload };
+      return this;
+    },
+    redirect(code, url) {
+      this.statusCode = code;
+      this.payload = url;
+      result = { statusCode: code, body: url };
+      return this;
+    }
+  };
+
+  await tildaIiko(localReq, localRes);
+  return { result, baseUrl: host ? `${protocol}://${host}` : '' };
+}
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -7,13 +102,14 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const event = req.body;
+    const event = coerceBody(req.body);
 
     console.log('Received webhook:', JSON.stringify(event, null, 2));
 
     let paymentIntent = event.payment_intent || event;
 
-    if (paymentIntent.status === 'completed' || paymentIntent.status === 'succeeded') {
+    const statusNorm = normalizeString(paymentIntent.status);
+    if (statusNorm === 'completed' || statusNorm === 'succeeded' || statusNorm === 'paid') {
       const metadata = paymentIntent.metadata || {};
       const tildaOrderId = metadata.tilda_order_id;
       
@@ -79,6 +175,18 @@ module.exports = async (req, res) => {
             console.error('Tilda response status:', err.response.status);
             console.error('Tilda response data:', err.response.data);
         }
+      }
+
+      const enableIikoOnPaymentWebhook = normalizeString(process.env.ENABLE_IIKO_ON_PAYMENT_WEBHOOK) === 'true';
+      if (enableIikoOnPaymentWebhook) {
+        try {
+          const { result: iikoResult } = await sendPaidOrderToIiko({ req, metadata, paymentIntent });
+          console.log('iiko create result:', JSON.stringify(iikoResult, null, 2));
+        } catch (err) {
+          console.error('Error sending paid order to iiko:', err.response?.data || err.message);
+        }
+      } else {
+        console.log('Skip iiko create: ENABLE_IIKO_ON_PAYMENT_WEBHOOK is not true');
       }
     }
 
