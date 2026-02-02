@@ -471,6 +471,10 @@ module.exports = async (req, res) => {
     const productsParsed = parseProducts(body.products || body.PRODUCTS || '');
     const total = extractTotal(body);
 
+    if (!tildaOrderId && !paymentId && productsParsed.length === 0) {
+      return res.status(200).json({ ok: true, requestId, skipped: true });
+    }
+
     const extraFields = {
       name: body.name || body.NAME,
       email: body.email || body.EMAIL,
