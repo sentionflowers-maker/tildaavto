@@ -162,9 +162,20 @@ function inferCityKey({ urlCity, projectId, projectIdToCity, bodyCity, referer, 
 
   const hostStr = host ? String(host) : '';
   if (hostStr) {
-    const subdomain = hostStr.split('.')[0];
-    const fromHost = normalizeString(subdomain);
-    if (fromHost && fromHost !== 'www') return fromHost;
+    const hostNoPort = hostStr.split(':')[0].trim();
+    const hostLower = hostNoPort.toLowerCase();
+    const ignoreHostCity =
+      hostLower.endsWith('vercel.app') ||
+      hostLower.endsWith('now.sh') ||
+      hostLower.endsWith('ngrok.io') ||
+      hostLower.endsWith('ngrok-free.app') ||
+      hostLower === 'localhost' ||
+      hostLower === '127.0.0.1';
+    if (!ignoreHostCity) {
+      const subdomain = hostNoPort.split('.')[0];
+      const fromHost = normalizeString(subdomain);
+      if (fromHost && fromHost !== 'www') return fromHost;
+    }
   }
 
   return '';
@@ -401,6 +412,13 @@ module.exports = async (req, res) => {
       if (provided !== secret) return res.status(401).json({ ok: false, requestId, error: 'Unauthorized' });
     }
 
+    const bodyKeys = Object.keys(body || {});
+    const onlyAuthFields =
+      bodyKeys.length === 0 || bodyKeys.every((k) => normalizeString(k) === 'secret' || normalizeString(k) === 'token');
+    if (onlyAuthFields) {
+      return res.status(200).json({ ok: true, requestId });
+    }
+
     const baseUrl = process.env.IIKO_BASE_URL || 'https://api-ru.iiko.services';
     const citiesConfig = loadCitiesConfig();
 
@@ -424,8 +442,23 @@ module.exports = async (req, res) => {
       host: req.headers['x-forwarded-host'] || req.headers.host
     });
 
-    const effectiveCity = cityKey || normalizeString(citiesConfig.defaultCity) || 'default';
-    const cityCfg = (citiesConfig.cities && citiesConfig.cities[effectiveCity]) || null;
+    const defaultCityNorm = normalizeString(citiesConfig.defaultCity);
+    let effectiveCity = cityKey || defaultCityNorm || 'default';
+    let cityCfg = (citiesConfig.cities && citiesConfig.cities[effectiveCity]) || null;
+
+    if (!cityCfg && defaultCityNorm && effectiveCity !== defaultCityNorm) {
+      effectiveCity = defaultCityNorm;
+      cityCfg = (citiesConfig.cities && citiesConfig.cities[effectiveCity]) || null;
+    }
+
+    if (!cityCfg && citiesConfig.cities && typeof citiesConfig.cities === 'object') {
+      const keys = Object.keys(citiesConfig.cities);
+      if (keys.length === 1) {
+        effectiveCity = keys[0];
+        cityCfg = citiesConfig.cities[effectiveCity] || null;
+      }
+    }
+
     if (!cityCfg) {
       return res.status(400).json({ ok: false, requestId, error: 'Unknown city', city: effectiveCity });
     }
