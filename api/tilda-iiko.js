@@ -677,12 +677,34 @@ module.exports = async (req, res) => {
       return res.status(400).json({ ok: false, requestId, error: 'Unknown city', city: effectiveCity });
     }
 
+    let paymentObj = body.payment || body.PAYMENT;
+    if (typeof paymentObj === 'string') {
+      try {
+        paymentObj = JSON.parse(paymentObj);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     const tildaOrderId =
-      body.orderid || body.order_id || body.ORDERID || body.ORDER_ID || body.orderId || body.payment_order_id || '';
+      body.orderid ||
+      body.order_id ||
+      body.ORDERID ||
+      body.ORDER_ID ||
+      body.orderId ||
+      body.payment_order_id ||
+      (paymentObj && (paymentObj.orderid || paymentObj.order_id)) ||
+      '';
+      
     const paymentId = body.paymentid || body.payment_id || body.PAYMENT_ID || '';
 
-    const productsParsed = parseProducts(body.products || body.PRODUCTS || '');
-    const total = extractTotal(body);
+    let rawProducts = body.products || body.PRODUCTS;
+    if (!rawProducts && paymentObj && paymentObj.products) {
+      rawProducts = paymentObj.products;
+    }
+
+    const productsParsed = parseProducts(rawProducts);
+    const total = extractTotal(body) || (paymentObj && paymentObj.amount);
 
     if (productsParsed.length === 0) {
       return res.status(200).json({ ok: true, requestId, skipped: true });
