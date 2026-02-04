@@ -27,7 +27,7 @@ module.exports = {
       organizationId: '6fd820ff-65a0-40d6-8309-83d6425aaf2e',
       terminalGroupId: '16405536-0b9a-30e4-017e-dea16b460064',
       paymentTypeKind: 'Card',
-      fallbackProductId: '70291db1-a0fc-49df-a625-762c919cbf99' // Лионский киш как запасной вариант
+      fallbackProductId: '1a87e019-3dff-4e07-b9f1-73cf9140bdbf' // Морс Клюквенный (простой товар, чтобы не было ошибок с размерами)
     },
     // Заполните данные для других городов ниже по аналогии с msk
     spb: {

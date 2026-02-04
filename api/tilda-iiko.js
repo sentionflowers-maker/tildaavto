@@ -765,7 +765,19 @@ module.exports = async (req, res) => {
       });
 
       if (found && found.iikoProductId) {
-        iikoItems.push({ type: 'Product', productId: found.iikoProductId, amount: product.quantity });
+        if (found.type === 'Compound' && found.sizeId && found.modifierSchemaId) {
+          iikoItems.push({
+            type: 'Compound',
+            primaryComponent: {
+              product: { id: found.iikoProductId }
+            },
+            template: { id: found.modifierSchemaId },
+            size: { id: found.sizeId },
+            amount: product.quantity
+          });
+        } else {
+          iikoItems.push({ type: 'Product', productId: found.iikoProductId, amount: product.quantity });
+        }
       } else {
         unmapped.push(product);
       }
@@ -781,6 +793,12 @@ module.exports = async (req, res) => {
           city: effectiveCity
         });
       }
+      
+      // Check if fallback product is configured as Compound in mapping or if it's the known Mors ID
+      // For now, we assume fallback is Simple unless we look it up in mapping, but mapping lookup is complex here.
+      // However, we changed fallbackProductId in config to a known simple product (Mors), so this is safe.
+      // If we ever want fallback to be compound, we should expand cityCfg.
+      
       iikoItems.push({ type: 'Product', productId: fallbackProductId, amount: 1 });
     }
 
