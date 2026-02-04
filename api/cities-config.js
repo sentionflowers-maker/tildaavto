@@ -26,7 +26,8 @@ module.exports = {
       apiLogin: '95d5ce46963b47418e5b07543ec77fb4',
       organizationId: '6fd820ff-65a0-40d6-8309-83d6425aaf2e',
       terminalGroupId: '16405536-0b9a-30e4-017e-dea16b460064',
-      paymentTypeKind: 'Card'
+      paymentTypeKind: 'Card',
+      fallbackProductId: '70291db1-a0fc-49df-a625-762c919cbf99' // Лионский киш как запасной вариант
     },
     // Заполните данные для других городов ниже по аналогии с msk
     spb: {

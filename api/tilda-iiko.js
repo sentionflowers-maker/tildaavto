@@ -719,8 +719,11 @@ module.exports = async (req, res) => {
     const total = extractTotal(body) || (paymentObj && paymentObj.amount);
 
     if (productsParsed.length === 0) {
+      console.log('No products parsed from body:', JSON.stringify(body));
       return res.status(200).json({ ok: true, requestId, skipped: true });
     }
+    
+    console.log('Incoming products:', JSON.stringify(productsParsed));
 
     const extraFields = {
       name: body.name || body.NAME,
