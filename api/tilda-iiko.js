@@ -787,6 +787,12 @@ module.exports = async (req, res) => {
         }
       }
 
+      // If we have an ID but no mapping found yet (e.g. ID came from Tilda directly),
+      // try to find the mapping by iikoProductId to get Compound configuration
+      if (targetIikoId && !found) {
+        found = mapping.find(m => m.iikoProductId === targetIikoId && normalizeString(m.city) === normalizeString(effectiveCity));
+      }
+
       if (targetIikoId) {
         // Mapped item
         if (found && found.type === 'Compound' && found.sizeId && found.modifierSchemaId) {

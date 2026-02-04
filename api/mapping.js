@@ -467,6 +467,14 @@ module.exports = [
   },
   {
     "city": "msk",
+    "tildaName": "Амстердамский пирог",
+    "iikoProductId": "a80e6ecb-3479-47ba-a221-d1dde5e7b8f3",
+    "type": "Compound",
+    "modifierSchemaId": "0d0d70f2-ce97-4f83-9ff4-0a49cc31029b",
+    "sizeId": "7c23e0c5-ef2e-4a16-8653-15918a7807d7"
+  },
+  {
+    "city": "msk",
     "tildaName": "Английский крамбл с ТОМЛЕНЫМ ЯБЛОКОМ и брусникой",
     "iikoProductId": "6e557c21-6ffd-4beb-ae82-9b26d077d457",
     "type": "Compound",
@@ -524,10 +532,7 @@ module.exports = [
   {
     "city": "msk",
     "tildaName": "Калифорнийский клубничный пай",
-    "iikoProductId": "2baf1773-6796-4aad-9fbc-e321533edf29",
-    "type": "Compound",
-    "modifierSchemaId": "0d0d70f2-ce97-4f83-9ff4-0a49cc31029b",
-    "sizeId": "7c23e0c5-ef2e-4a16-8653-15918a7807d7"
+    "iikoProductId": "2baf1773-6796-4aad-9fbc-e321533edf29"
   },
   {
     "city": "msk",
@@ -649,10 +654,7 @@ module.exports = [
   {
     "city": "msk",
     "tildaName": "Белорусский пирог с картофелем и грибами",
-    "iikoProductId": "5fd69471-ed6d-4038-8cb5-861206243fe7",
-    "type": "Compound",
-    "modifierSchemaId": "0d0d70f2-ce97-4f83-9ff4-0a49cc31029b",
-    "sizeId": "7c23e0c5-ef2e-4a16-8653-15918a7807d7"
+    "iikoProductId": "5fd69471-ed6d-4038-8cb5-861206243fe7"
   },
   {
     "city": "msk",
@@ -665,10 +667,7 @@ module.exports = [
   {
     "city": "msk",
     "tildaName": "Брюссельский пирог с брокколи, шпинатом и цветной капустой",
-    "iikoProductId": "4627e8a3-652c-4dc4-a25c-2582d40e05cf",
-    "type": "Compound",
-    "modifierSchemaId": "0d0d70f2-ce97-4f83-9ff4-0a49cc31029b",
-    "sizeId": "7c23e0c5-ef2e-4a16-8653-15918a7807d7"
+    "iikoProductId": "4627e8a3-652c-4dc4-a25c-2582d40e05cf"
   },
   {
     "city": "msk",
@@ -713,6 +712,14 @@ module.exports = [
   {
     "city": "msk",
     "tildaName": "Лионский киш с курочкой и помидорками черри",
+    "iikoProductId": "70291db1-a0fc-49df-a625-762c919cbf99",
+    "type": "Compound",
+    "modifierSchemaId": "0d0d70f2-ce97-4f83-9ff4-0a49cc31029b",
+    "sizeId": "7c23e0c5-ef2e-4a16-8653-15918a7807d7"
+  },
+  {
+    "city": "msk",
+    "tildaName": "Лионский киш",
     "iikoProductId": "70291db1-a0fc-49df-a625-762c919cbf99",
     "type": "Compound",
     "modifierSchemaId": "0d0d70f2-ce97-4f83-9ff4-0a49cc31029b",
