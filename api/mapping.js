@@ -14,8 +14,7 @@ module.exports = [
     type: 'Compound',
     modifierSchemaId: '0d0d70f2-ce97-4f83-9ff4-0a49cc31029b', // Размер
     sizeId: '7c23e0c5-ef2e-4a16-8653-15918a7807d7' // 24 см (стандарт)
-  }
-];},
+  },
   {
     city: 'msk',
     tildaName: 'Вкусное путешествие',
