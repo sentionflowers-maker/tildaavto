@@ -225,7 +225,7 @@ function extractTotal(body) {
   return null;
 }
 
-function inferCityKey({ urlCity, projectId, projectIdToCity, bodyCity, referer, host }) {
+function inferCityKey({ urlCity, projectId, pageId, projectIdToCity, pageIdToCity, bodyCity, referer, host }) {
   const fromUrl = normalizeString(urlCity);
   if (fromUrl) return fromUrl;
 
@@ -238,6 +238,16 @@ function inferCityKey({ urlCity, projectId, projectIdToCity, bodyCity, referer, 
     const fromProject = normalizeString(mapped);
     if (fromProject) return fromProject;
     if (projectIdStr === '820503') return 'msk';
+  }
+
+  const pageIdStr = pageId === null || pageId === undefined ? '' : String(pageId).trim();
+  if (pageIdStr) {
+    const mapped =
+      pageIdToCity && typeof pageIdToCity === 'object'
+        ? pageIdToCity[pageIdStr] || pageIdToCity[String(Number(pageIdStr))]
+        : '';
+    const fromPage = normalizeString(mapped);
+    if (fromPage) return fromPage;
   }
 
   const fromBody = normalizeString(bodyCity);
@@ -279,7 +289,7 @@ function inferCityKey({ urlCity, projectId, projectIdToCity, bodyCity, referer, 
 function loadCitiesConfig() {
   const raw = process.env.TILDA_IIKO_CITIES_JSON || '';
   if (!raw.trim()) {
-    return { defaultCity: '', cities: {}, projectIdToCity: {} };
+    return { defaultCity: '', cities: {}, projectIdToCity: {}, pageIdToCity: {} };
   }
   try {
     const parsed = JSON.parse(raw);
@@ -290,10 +300,14 @@ function loadCitiesConfig() {
         (parsed.projectIdToCity && typeof parsed.projectIdToCity === 'object' ? parsed.projectIdToCity : null) ||
         (parsed.projectidToCity && typeof parsed.projectidToCity === 'object' ? parsed.projectidToCity : null) ||
         (parsed.projectIdCity && typeof parsed.projectIdCity === 'object' ? parsed.projectIdCity : null) ||
+        {},
+      pageIdToCity:
+        (parsed.pageIdToCity && typeof parsed.pageIdToCity === 'object' ? parsed.pageIdToCity : null) ||
+        (parsed.pageidToCity && typeof parsed.pageidToCity === 'object' ? parsed.pageidToCity : null) ||
         {}
     };
   } catch (_) {
-    return { defaultCity: '', cities: {}, projectIdToCity: {} };
+    return { defaultCity: '', cities: {}, projectIdToCity: {}, pageIdToCity: {} };
   }
 }
 
@@ -645,11 +659,16 @@ module.exports = async (req, res) => {
       safeString(body, 'PROJECTID') ||
       safeString(body, 'PROJECT_ID');
     const projectId = bodyProjectId || urlProjectId || '';
+
+    const pageId = safeString(body, 'pageid') || safeString(body, 'page_id') || safeString(body, 'PAGEID') || '';
+
     const referer = safeString(body, 'referer') || req.headers.referer || '';
     const cityKey = inferCityKey({
       urlCity,
       projectId,
+      pageId,
       projectIdToCity: citiesConfig.projectIdToCity,
+      pageIdToCity: citiesConfig.pageIdToCity,
       bodyCity: body.city,
       referer,
       host: req.headers['x-forwarded-host'] || req.headers.host
