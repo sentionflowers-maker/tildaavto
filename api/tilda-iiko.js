@@ -793,7 +793,7 @@ module.exports = async (req, res) => {
            iikoItems.push({
             type: 'Compound',
             primaryComponent: {
-              product: { id: targetIikoId }
+              productId: targetIikoId
             },
             template: { id: found.modifierSchemaId },
             size: { id: found.sizeId },
