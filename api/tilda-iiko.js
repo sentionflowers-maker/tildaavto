@@ -286,29 +286,11 @@ function inferCityKey({ urlCity, projectId, pageId, projectIdToCity, pageIdToCit
   return '';
 }
 
+const citiesConfig = require('./cities-config');
+
 function loadCitiesConfig() {
-  const raw = process.env.TILDA_IIKO_CITIES_JSON || '';
-  if (!raw.trim()) {
-    return { defaultCity: '', cities: {}, projectIdToCity: {}, pageIdToCity: {} };
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    return {
-      defaultCity: parsed.defaultCity ? String(parsed.defaultCity) : '',
-      cities: parsed.cities && typeof parsed.cities === 'object' ? parsed.cities : {},
-      projectIdToCity:
-        (parsed.projectIdToCity && typeof parsed.projectIdToCity === 'object' ? parsed.projectIdToCity : null) ||
-        (parsed.projectidToCity && typeof parsed.projectidToCity === 'object' ? parsed.projectidToCity : null) ||
-        (parsed.projectIdCity && typeof parsed.projectIdCity === 'object' ? parsed.projectIdCity : null) ||
-        {},
-      pageIdToCity:
-        (parsed.pageIdToCity && typeof parsed.pageIdToCity === 'object' ? parsed.pageIdToCity : null) ||
-        (parsed.pageidToCity && typeof parsed.pageidToCity === 'object' ? parsed.pageidToCity : null) ||
-        {}
-    };
-  } catch (_) {
-    return { defaultCity: '', cities: {}, projectIdToCity: {}, pageIdToCity: {} };
-  }
+  // Use local config file instead of environment variable
+  return citiesConfig;
 }
 
 function inferIsPaid({ body, paymentId }) {
