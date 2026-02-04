@@ -2,6 +2,21 @@ const axios = require('axios');
 const crypto = require('crypto');
 const querystring = require('querystring');
 const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
+
+function logDebug(name, data) {
+  try {
+    const logDir = path.join(__dirname, '..', 'logs');
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    const filePath = path.join(logDir, `${name}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error(`Failed to write debug log ${name}:`, e.message);
+  }
+}
 
 let cachedMapping = null;
 let cachedMappingLoadedAtMs = 0;
@@ -462,11 +477,18 @@ async function getIikoToken({ baseUrl, apiLogin }) {
 }
 
 async function createDeliveryInIiko({ baseUrl, token, payload }) {
-  const res = await axios.post(`${baseUrl}/api/1/deliveries/create`, payload, {
-    timeout: 20000,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-  });
-  return res.data;
+  logDebug('last-create-request', payload);
+  try {
+    const res = await axios.post(`${baseUrl}/api/1/deliveries/create`, payload, {
+      timeout: 20000,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    });
+    logDebug('last-create-response', res.data);
+    return res.data;
+  } catch (err) {
+    logDebug('last-create-error', { message: err.message, response: err.response?.data });
+    throw err;
+  }
 }
 
 function formatIikoDateTime(date) {
@@ -520,15 +542,23 @@ async function findExistingDeliveryOrderIdByPhoneAndExternalNumber({
 }
 
 async function changeDeliveryOrderPayments({ baseUrl, token, organizationId, orderId, payments }) {
-  const res = await axios.post(
-    `${baseUrl}/api/1/deliveries/change_payments`,
-    { organizationId, orderId, payments },
-    {
-      timeout: 20000,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-    }
-  );
-  return res.data;
+  const payload = { organizationId, orderId, payments };
+  logDebug('last-update-request', payload);
+  try {
+    const res = await axios.post(
+      `${baseUrl}/api/1/deliveries/change_payments`,
+      payload,
+      {
+        timeout: 20000,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+      }
+    );
+    logDebug('last-update-response', res.data);
+    return res.data;
+  } catch (err) {
+    logDebug('last-update-error', { message: err.message, response: err.response?.data });
+    throw err;
+  }
 }
 
 function buildOrderComment({
