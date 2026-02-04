@@ -361,6 +361,18 @@ async function loadMapping() {
     return cachedMapping;
   }
 
+  // Try to load from local file first
+  try {
+    const localMapping = require('./mapping');
+    if (localMapping && Array.isArray(localMapping) && localMapping.length > 0) {
+      cachedMapping = localMapping;
+      cachedMappingLoadedAtMs = now;
+      return cachedMapping;
+    }
+  } catch (e) {
+    // ignore
+  }
+
   const raw = process.env.TILDA_IIKO_MAPPING_JSON || '[]';
   try {
     const parsed = JSON.parse(raw);
