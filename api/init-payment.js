@@ -1,14 +1,45 @@
 const createOrderInIiko = require('./tilda-iiko');
+const fs = require('fs');
+const path = require('path');
+
+// Helper to log requests for debugging
+const logDebug = (prefix, data) => {
+  try {
+    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    const logsDir = path.join(__dirname, '..', 'logs');
+    
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    
+    const filename = `${prefix}-${timestamp}.json`;
+    fs.writeFileSync(
+      path.join(logsDir, filename), 
+      JSON.stringify(data, null, 2)
+    );
+    console.log(`Logged ${prefix} to ${filename}`);
+  } catch (e) {
+    console.error('Failed to write log:', e);
+  }
+};
 
 module.exports = async (req, res) => {
   console.log('Init Payment Request Method:', req.method);
   
   if (req.body) {
     console.log('Request Body Keys:', Object.keys(req.body));
+    // Log the full incoming payload from Tilda
+    logDebug('tilda-init-payment-request', req.body);
   }
 
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
+  }
+
+  // VALIDATION: Ensure we have a valid body
+  if (!req.body || Object.keys(req.body).length === 0) {
+    console.error('Empty request body received');
+    return res.status(400).send('Bad Request: Empty body');
   }
 
   try {
