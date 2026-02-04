@@ -150,6 +150,7 @@ function parseProducts(productsRaw) {
           (looksLikeUuid(externalVariantId) ? String(externalVariantId).trim() : '') ||
           (looksLikeUuid(externalProductId) ? String(externalProductId).trim() : '');
         const quantity = Number(p.quantity || p.amount || 1);
+        const price = Number(p.price || p.amount || 0);
         return {
           raw: JSON.stringify(p),
           tildaProductId: tildaIdCandidates[0] || '',
@@ -158,7 +159,8 @@ function parseProducts(productsRaw) {
           name: String(name).trim(),
           modifierText: String(modifierText).trim(),
           weightKey: parseWeightKey(modifierText),
-          quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+          quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+          price: Number.isFinite(price) && price >= 0 ? price : 0
         };
       })
       .filter(Boolean);
@@ -185,6 +187,7 @@ function parseProducts(productsRaw) {
     const match = part.match(/^(.*?)\s*-\s*(\d+)\s*x\s*([\d.,]+)\s*=\s*([\d.,]+)\s*(.*)?$/i);
     const rawTitle = match ? match[1].trim() : part;
     const qty = match ? Number(match[2]) : 1;
+    const priceMatch = match ? Number(match[3].replace(',', '.')) : 0;
 
     let name = rawTitle;
     let modifierText = '';
@@ -200,7 +203,8 @@ function parseProducts(productsRaw) {
       name,
       modifierText,
       weightKey: parseWeightKey(modifierText),
-      quantity: Number.isFinite(qty) && qty > 0 ? qty : 1
+      quantity: Number.isFinite(qty) && qty > 0 ? qty : 1,
+      price: Number.isFinite(priceMatch) && priceMatch >= 0 ? priceMatch : 0
     });
   }
 
@@ -748,58 +752,78 @@ module.exports = async (req, res) => {
 
     const mapping = await loadMapping();
     const unmapped = [];
+    const fallbackProductId = cityCfg.fallbackProductId || '';
 
     const iikoItems = [];
     for (const product of productsParsed) {
-      if (product.iikoProductId) {
-        iikoItems.push({ type: 'Product', productId: product.iikoProductId, amount: product.quantity });
-        continue;
-      }
-      const found = findIikoProduct({
-        mapping,
-        cityKey: effectiveCity,
-        tildaProductIds: product.tildaIdCandidates || [product.tildaProductId],
-        name: product.name,
-        modifierText: product.modifierText,
-        weightKey: product.weightKey
-      });
+      // Logic: 
+      // 1. Try to find mapped product
+      // 2. If mapped, use mapped ID
+      // 3. If not mapped, use fallback ID (if configured)
+      // 4. Always pass price from Tilda to override iiko price (important for fallback items)
 
-      if (found && found.iikoProductId) {
-        if (found.type === 'Compound' && found.sizeId && found.modifierSchemaId) {
-          iikoItems.push({
+      let targetIikoId = product.iikoProductId;
+      let found = null;
+
+      if (!targetIikoId) {
+        found = findIikoProduct({
+          mapping,
+          cityKey: effectiveCity,
+          tildaProductIds: product.tildaIdCandidates || [product.tildaProductId],
+          name: product.name,
+          modifierText: product.modifierText,
+          weightKey: product.weightKey
+        });
+        if (found && found.iikoProductId) {
+          targetIikoId = found.iikoProductId;
+        }
+      }
+
+      if (targetIikoId) {
+        // Mapped item
+        if (found && found.type === 'Compound' && found.sizeId && found.modifierSchemaId) {
+           iikoItems.push({
             type: 'Compound',
             primaryComponent: {
-              product: { id: found.iikoProductId }
+              product: { id: targetIikoId }
             },
             template: { id: found.modifierSchemaId },
             size: { id: found.sizeId },
-            amount: product.quantity
+            amount: product.quantity,
+            price: product.price
           });
         } else {
-          iikoItems.push({ type: 'Product', productId: found.iikoProductId, amount: product.quantity });
+          iikoItems.push({ 
+            type: 'Product', 
+            productId: targetIikoId, 
+            amount: product.quantity,
+            price: product.price 
+          });
         }
+      } else if (fallbackProductId) {
+        // Unmapped item -> use fallback
+        // We use the fallback product ID but KEEP the Tilda price and amount
+        iikoItems.push({ 
+          type: 'Product', 
+          productId: fallbackProductId, 
+          amount: product.quantity, 
+          price: product.price,
+          comment: `Original: ${product.name}` // Optional: helps kitchen know what it really is
+        });
+        unmapped.push(product);
       } else {
+        // No mapping and no fallback -> ignore or log
         unmapped.push(product);
       }
     }
 
     if (!iikoItems.length) {
-      const fallbackProductId = cityCfg.fallbackProductId || '';
-      if (!fallbackProductId) {
-        return res.status(400).json({
-          ok: false,
-          requestId,
-          error: 'No mapped items and no fallbackProductId configured',
-          city: effectiveCity
-        });
-      }
-      
-      // Check if fallback product is configured as Compound in mapping or if it's the known Mors ID
-      // For now, we assume fallback is Simple unless we look it up in mapping, but mapping lookup is complex here.
-      // However, we changed fallbackProductId in config to a known simple product (Mors), so this is safe.
-      // If we ever want fallback to be compound, we should expand cityCfg.
-      
-      iikoItems.push({ type: 'Product', productId: fallbackProductId, amount: 1 });
+      return res.status(400).json({
+        ok: false,
+        requestId,
+        error: 'No mapped items and no fallbackProductId configured',
+        city: effectiveCity
+      });
     }
 
     const comment = buildOrderComment({
