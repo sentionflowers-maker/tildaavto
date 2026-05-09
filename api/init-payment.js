@@ -10,6 +10,19 @@ function normalizeAmountToFils(amount) {
 }
 
 module.exports = async (req, res) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = new Set(['https://sention.ae', 'https://www.sention.ae', 'https://tildaavto.vercel.app']);
+  if (origin && allowedOrigins.has(String(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', String(origin));
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, X-Requested-With');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   if (req.method === 'GET' || req.method === 'HEAD') {
     return res.status(200).send('OK');
   }
