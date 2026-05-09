@@ -10,6 +10,10 @@ function normalizeAmountToFils(amount) {
 }
 
 module.exports = async (req, res) => {
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return res.status(200).send('OK');
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
@@ -94,6 +98,7 @@ module.exports = async (req, res) => {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="refresh" content="0;url=${redirectUrl}" />
     <title>Redirecting to payment...</title>
   </head>
   <body>

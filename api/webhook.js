@@ -331,6 +331,10 @@ async function sendPaidOrderToIiko({ req, metadata, paymentIntent }) {
 }
 
 module.exports = async (req, res) => {
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return res.status(200).send('OK');
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
