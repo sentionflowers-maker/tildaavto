@@ -32,13 +32,23 @@ function envState(value) {
 
 module.exports = async (req, res) => {
   const origin = req.headers.origin;
-  const allowedOrigins = new Set(['https://sention.ae', 'https://www.sention.ae', 'https://tildaavto.vercel.app']);
-  if (origin && allowedOrigins.has(String(origin))) {
-    res.setHeader('Access-Control-Allow-Origin', String(origin));
+  const originStr = origin ? String(origin) : '';
+  const allowedExactOrigins = new Set(['https://sention.ae', 'https://www.sention.ae', 'https://tildaavto.vercel.app']);
+  const isAllowedOrigin =
+    (originStr && allowedExactOrigins.has(originStr)) ||
+    (originStr && (originStr.endsWith('.tilda.ws') || originStr.endsWith('.tilda.cc')));
+
+  if (originStr && isAllowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', originStr);
     res.setHeader('Vary', 'Origin');
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, X-Requested-With');
+  const requestedHeaders = req.headers['access-control-request-headers'];
+  if (requestedHeaders) {
+    res.setHeader('Access-Control-Allow-Headers', String(requestedHeaders));
+  } else {
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, X-Requested-With');
+  }
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
