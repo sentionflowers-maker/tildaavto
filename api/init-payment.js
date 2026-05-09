@@ -30,6 +30,68 @@ function envState(value) {
   return 'present';
 }
 
+function detectClientMode({ req, body }) {
+  const accept = String(req.headers.accept || '').toLowerCase();
+  const xRequestedWith = String(req.headers['x-requested-with'] || '').toLowerCase();
+  const secFetchMode = String(req.headers['sec-fetch-mode'] || '').toLowerCase();
+  const secFetchDest = String(req.headers['sec-fetch-dest'] || '').toLowerCase();
+  const wantsJson =
+    accept.includes('application/json') ||
+    xRequestedWith === 'xmlhttprequest' ||
+    secFetchMode === 'cors' ||
+    secFetchDest === 'empty' ||
+    (body && (body.response_type === 'json' || body.responseType === 'json'));
+  const isNavigate = secFetchMode === 'navigate' || secFetchDest === 'document';
+  return { wantsJson, isNavigate };
+}
+
+function sendInitPaymentError({ req, res, body, title, message, statusCode, details }) {
+  const client = detectClientMode({ req, body });
+  const payload = {
+    ok: false,
+    error: title,
+    message,
+    status: Number(statusCode) || 500,
+    details: details || null
+  };
+
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-InitPayment-Error', title);
+
+  if (client.wantsJson) {
+    return res.status(200).json(payload);
+  }
+
+  const safeDetailsText = details ? JSON.stringify(details, null, 2) : '';
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.status(200).send(
+    `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${String(title)}</title>
+    <style>
+      body { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif; padding: 16px; }
+      .box { background: #f6f7f9; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-top: 12px; }
+      h1 { font-size: 18px; margin: 0 0 8px; }
+      p { margin: 6px 0; }
+      pre { white-space: pre-wrap; word-break: break-word; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Ошибка шлюза оплаты</h1>
+    <p><strong>${String(title)}</strong></p>
+    <p>${String(message || '')}</p>
+    <div class="box">
+      <p><strong>HTTP статус:</strong> ${Number(statusCode) || 500}</p>
+      ${safeDetailsText ? `<p><strong>Детали:</strong></p><pre>${safeDetailsText}</pre>` : ''}
+    </div>
+  </body>
+</html>`
+  );
+}
+
 module.exports = async (req, res) => {
   const origin = req.headers.origin;
   const originStr = origin ? String(origin) : '';
@@ -106,16 +168,45 @@ module.exports = async (req, res) => {
 
     const amountInFils = normalizeAmountToFils(amount);
     if (!amountInFils) {
-      return res.status(400).send('Missing or invalid amount');
+      return sendInitPaymentError({
+        req,
+        res,
+        body,
+        title: 'Invalid amount',
+        message: 'Не удалось определить сумму для оплаты (amount).',
+        statusCode: 400,
+        details: { receivedAmount: amount ?? null, bodyKeys: Object.keys(body || {}) }
+      });
     }
 
     if (!orderid) {
-      return res.status(400).send('Missing orderid');
+      return sendInitPaymentError({
+        req,
+        res,
+        body,
+        title: 'Missing orderid',
+        message: 'Не удалось определить номер заказа (orderid).',
+        statusCode: 400,
+        details: { bodyKeys: Object.keys(body || {}) }
+      });
     }
 
     const ziinaToken = process.env.ZIINA_API_TOKEN || process.env.ZIINA_API_KEY;
     if (!ziinaToken || String(ziinaToken).trim() === '') {
-      return res.status(500).send('Configuration Error: Missing Ziina Token (ZIINA_API_TOKEN/ZIINA_API_KEY)');
+      return sendInitPaymentError({
+        req,
+        res,
+        body,
+        title: 'Missing Ziina token',
+        message: 'На сервере не найден токен Ziina (ZIINA_API_KEY / ZIINA_API_TOKEN) в окружении Production.',
+        statusCode: 500,
+        details: {
+          env: {
+            ZIINA_API_TOKEN: envState(process.env.ZIINA_API_TOKEN),
+            ZIINA_API_KEY: envState(process.env.ZIINA_API_KEY)
+          }
+        }
+      });
     }
 
     const protocol = req.headers['x-forwarded-proto'] || 'https';
@@ -146,19 +237,7 @@ module.exports = async (req, res) => {
 
     const redirectUrl = response.data && response.data.redirect_url ? String(response.data.redirect_url) : null;
     if (redirectUrl) {
-      const accept = String(req.headers.accept || '').toLowerCase();
-      const xRequestedWith = String(req.headers['x-requested-with'] || '').toLowerCase();
-      const secFetchMode = String(req.headers['sec-fetch-mode'] || '').toLowerCase();
-      const secFetchDest = String(req.headers['sec-fetch-dest'] || '').toLowerCase();
-      const wantsJson =
-        accept.includes('application/json') ||
-        xRequestedWith === 'xmlhttprequest' ||
-        secFetchMode === 'cors' ||
-        secFetchDest === 'empty' ||
-        body.response_type === 'json' ||
-        body.responseType === 'json';
-
-      const isNavigate = secFetchMode === 'navigate' || secFetchDest === 'document';
+      const { wantsJson, isNavigate } = detectClientMode({ req, body });
 
       if (wantsJson) {
         return res.status(200).json({ redirect_url: redirectUrl });
@@ -200,9 +279,37 @@ module.exports = async (req, res) => {
       );
     }
 
-    return res.status(500).send('Failed to initiate payment: No redirect URL');
+    return sendInitPaymentError({
+      req,
+      res,
+      body,
+      title: 'No redirect_url from Ziina',
+      message: 'Ziina не вернула redirect_url для оплаты.',
+      statusCode: 502,
+      details: { ziinaResponse: response.data || null }
+    });
   } catch (error) {
-    const details = error.response?.data?.message || error.response?.data || error.message;
-    return res.status(500).send(`Internal Server Error: ${details}`);
+    const errStatus = error.response?.status || 500;
+    const errData = error.response?.data || null;
+    const errMessage = error.message || 'Unknown error';
+    return sendInitPaymentError({
+      req,
+      res,
+      body: coerceBody(req.body),
+      title: 'Init-payment failed',
+      message: 'Шлюз оплаты вернул ошибку. Сделайте скриншот и отправьте в поддержку.',
+      statusCode: errStatus,
+      details: {
+        message: errMessage,
+        ziinaStatus: error.response?.status || null,
+        ziinaData: errData,
+        env: {
+          ZIINA_API_TOKEN: envState(process.env.ZIINA_API_TOKEN),
+          ZIINA_API_KEY: envState(process.env.ZIINA_API_KEY),
+          TILDA_SECRET: envState(process.env.TILDA_SECRET),
+          TILDA_LOGIN: envState(process.env.TILDA_LOGIN)
+        }
+      }
+    });
   }
 };
