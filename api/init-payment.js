@@ -253,11 +253,7 @@ module.exports = async (req, res) => {
     const redirectUrl = response.data && response.data.redirect_url ? String(response.data.redirect_url) : null;
     if (redirectUrl) {
       const { wantsJson, isNavigate } = detectClientMode({ req, body });
-
-      if (isNavigate) {
-        res.setHeader('Location', redirectUrl);
-        return res.status(303).end();
-      }
+      void isNavigate;
 
       if (wantsJson) {
         return res.status(200).json({ redirect_url: redirectUrl });
