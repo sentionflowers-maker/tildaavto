@@ -78,8 +78,43 @@ module.exports = async (req, res) => {
       }
     );
 
-    if (response.data && response.data.redirect_url) {
-      return res.redirect(303, response.data.redirect_url);
+    const redirectUrl = response.data && response.data.redirect_url ? String(response.data.redirect_url) : null;
+    if (redirectUrl) {
+      const accept = String(req.headers.accept || '').toLowerCase();
+      const wantsJson = accept.includes('application/json') || body.response_type === 'json' || body.responseType === 'json';
+
+      if (wantsJson) {
+        return res.status(200).json({ redirect_url: redirectUrl });
+      }
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(200).send(
+        `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting to payment...</title>
+  </head>
+  <body>
+    <script>
+      (function() {
+        var url = ${JSON.stringify(redirectUrl)};
+        try {
+          if (window.top) {
+            window.top.location.href = url;
+            return;
+          }
+        } catch (e) {}
+        window.location.href = url;
+      })();
+    </script>
+    <noscript>
+      <a href="${redirectUrl}">Continue to payment</a>
+    </noscript>
+  </body>
+</html>`
+      );
     }
 
     return res.status(500).send('Failed to initiate payment: No redirect URL');
