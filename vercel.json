@@ -1,5 +1,9 @@
 {
   "rewrites": [
+    { "source": "/api/webhook,", "destination": "/api/webhook" },
+    { "source": "/api/webhook%2C", "destination": "/api/webhook" },
+    { "source": "/api/init-payment,", "destination": "/api/init-payment" },
+    { "source": "/api/init-payment%2C", "destination": "/api/init-payment" },
     { "source": "/ordersuccess", "destination": "/ordersuccess.html" },
     { "source": "/api/payment", "destination": "/api/init-payment.js" },
     { "source": "/api/webhook", "destination": "/api/webhook.js" },
