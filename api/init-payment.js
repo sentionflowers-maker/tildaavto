@@ -1,4 +1,5 @@
 const axios = require('axios');
+const querystring = require('querystring');
 
 function normalizeAmountToFils(amount) {
   const raw = String(amount ?? '').trim();
@@ -7,6 +8,19 @@ function normalizeAmountToFils(amount) {
   const num = Number(normalized);
   if (!Number.isFinite(num) || num <= 0) return null;
   return Math.round(num * 100);
+}
+
+function coerceBody(body) {
+  if (!body) return {};
+  if (typeof body === 'object' && !Buffer.isBuffer(body)) return body;
+  const text = Buffer.isBuffer(body) ? body.toString('utf8') : String(body);
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) {
+    return querystring.parse(trimmed);
+  }
 }
 
 module.exports = async (req, res) => {
@@ -32,7 +46,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const body = req.body || {};
+    const body = coerceBody(req.body);
 
     const amount =
       body.amount ??
@@ -98,10 +112,26 @@ module.exports = async (req, res) => {
     const redirectUrl = response.data && response.data.redirect_url ? String(response.data.redirect_url) : null;
     if (redirectUrl) {
       const accept = String(req.headers.accept || '').toLowerCase();
-      const wantsJson = accept.includes('application/json') || body.response_type === 'json' || body.responseType === 'json';
+      const xRequestedWith = String(req.headers['x-requested-with'] || '').toLowerCase();
+      const secFetchMode = String(req.headers['sec-fetch-mode'] || '').toLowerCase();
+      const secFetchDest = String(req.headers['sec-fetch-dest'] || '').toLowerCase();
+      const wantsJson =
+        accept.includes('application/json') ||
+        xRequestedWith === 'xmlhttprequest' ||
+        secFetchMode === 'cors' ||
+        secFetchDest === 'empty' ||
+        body.response_type === 'json' ||
+        body.responseType === 'json';
+
+      const isNavigate = secFetchMode === 'navigate' || secFetchDest === 'document';
 
       if (wantsJson) {
         return res.status(200).json({ redirect_url: redirectUrl });
+      }
+
+      if (isNavigate) {
+        res.setHeader('Location', redirectUrl);
+        return res.status(303).end();
       }
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
