@@ -93,6 +93,7 @@ function sendInitPaymentError({ req, res, body, title, message, statusCode, deta
 }
 
 module.exports = async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   const origin = req.headers.origin;
   const originStr = origin ? String(origin) : '';
   const allowedExactOrigins = new Set(['https://sention.ae', 'https://www.sention.ae', 'https://tildaavto.vercel.app']);
@@ -228,6 +229,7 @@ module.exports = async (req, res) => {
         }
       },
       {
+        timeout: 12000,
         headers: {
           Authorization: `Bearer ${ziinaToken}`,
           'Content-Type': 'application/json'
