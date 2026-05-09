@@ -35,13 +35,26 @@ function detectClientMode({ req, body }) {
   const xRequestedWith = String(req.headers['x-requested-with'] || '').toLowerCase();
   const secFetchMode = String(req.headers['sec-fetch-mode'] || '').toLowerCase();
   const secFetchDest = String(req.headers['sec-fetch-dest'] || '').toLowerCase();
-  const wantsJson =
+  const secFetchUser = String(req.headers['sec-fetch-user'] || '').toLowerCase();
+  const upgradeInsecureRequests = String(req.headers['upgrade-insecure-requests'] || '').toLowerCase();
+  const acceptsHtml = accept.includes('text/html') || accept.includes('application/xhtml+xml');
+  const wantsJsonHint =
     accept.includes('application/json') ||
     xRequestedWith === 'xmlhttprequest' ||
     secFetchMode === 'cors' ||
     secFetchDest === 'empty' ||
     (body && (body.response_type === 'json' || body.responseType === 'json'));
-  const isNavigate = secFetchMode === 'navigate' || secFetchDest === 'document';
+  const looksLikeNavigateByHeaders =
+    acceptsHtml ||
+    secFetchMode === 'navigate' ||
+    secFetchDest === 'document' ||
+    secFetchUser === '?1' ||
+    upgradeInsecureRequests === '1';
+
+  const isNavigate = looksLikeNavigateByHeaders && xRequestedWith !== 'xmlhttprequest';
+
+  const wantsJson = !isNavigate && (wantsJsonHint || !acceptsHtml);
+
   return { wantsJson, isNavigate };
 }
 
@@ -241,13 +254,13 @@ module.exports = async (req, res) => {
     if (redirectUrl) {
       const { wantsJson, isNavigate } = detectClientMode({ req, body });
 
-      if (wantsJson) {
-        return res.status(200).json({ redirect_url: redirectUrl });
-      }
-
       if (isNavigate) {
         res.setHeader('Location', redirectUrl);
         return res.status(303).end();
+      }
+
+      if (wantsJson) {
+        return res.status(200).json({ redirect_url: redirectUrl });
       }
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
