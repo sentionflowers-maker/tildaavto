@@ -38,6 +38,17 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'GET' || req.method === 'HEAD') {
+    const q = req.query || {};
+    const wantsHealth = q.health === '1' || q.debug === '1';
+    if (wantsHealth) {
+      const ziinaTokenPresent = Boolean(process.env.ZIINA_API_TOKEN || process.env.ZIINA_API_KEY);
+      return res.status(200).json({
+        ok: true,
+        ziinaTokenPresent,
+        hasTildaSecret: Boolean(process.env.TILDA_SECRET),
+        hasTildaLogin: Boolean(process.env.TILDA_LOGIN)
+      });
+    }
     return res.status(200).send('OK');
   }
 
