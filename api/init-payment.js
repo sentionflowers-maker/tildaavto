@@ -23,6 +23,13 @@ function coerceBody(body) {
   }
 }
 
+function envState(value) {
+  if (value === undefined) return 'missing';
+  if (value === null) return 'missing';
+  if (typeof value === 'string' && value.trim() === '') return 'empty';
+  return 'present';
+}
+
 module.exports = async (req, res) => {
   const origin = req.headers.origin;
   const allowedOrigins = new Set(['https://sention.ae', 'https://www.sention.ae', 'https://tildaavto.vercel.app']);
@@ -41,12 +48,19 @@ module.exports = async (req, res) => {
     const q = req.query || {};
     const wantsHealth = q.health === '1' || q.debug === '1';
     if (wantsHealth) {
-      const ziinaTokenPresent = Boolean(process.env.ZIINA_API_TOKEN || process.env.ZIINA_API_KEY);
+      const ziinaTokenPresent = Boolean(
+        (process.env.ZIINA_API_TOKEN && String(process.env.ZIINA_API_TOKEN).trim()) ||
+          (process.env.ZIINA_API_KEY && String(process.env.ZIINA_API_KEY).trim())
+      );
       return res.status(200).json({
         ok: true,
         ziinaTokenPresent,
-        hasTildaSecret: Boolean(process.env.TILDA_SECRET),
-        hasTildaLogin: Boolean(process.env.TILDA_LOGIN)
+        env: {
+          ZIINA_API_TOKEN: envState(process.env.ZIINA_API_TOKEN),
+          ZIINA_API_KEY: envState(process.env.ZIINA_API_KEY),
+          TILDA_SECRET: envState(process.env.TILDA_SECRET),
+          TILDA_LOGIN: envState(process.env.TILDA_LOGIN)
+        }
       });
     }
     return res.status(200).send('OK');
@@ -90,8 +104,8 @@ module.exports = async (req, res) => {
     }
 
     const ziinaToken = process.env.ZIINA_API_TOKEN || process.env.ZIINA_API_KEY;
-    if (!ziinaToken) {
-      return res.status(500).send('Configuration Error: Missing Ziina Token');
+    if (!ziinaToken || String(ziinaToken).trim() === '') {
+      return res.status(500).send('Configuration Error: Missing Ziina Token (ZIINA_API_TOKEN/ZIINA_API_KEY)');
     }
 
     const protocol = req.headers['x-forwarded-proto'] || 'https';
